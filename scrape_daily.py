@@ -17,12 +17,18 @@ OUTPUT_FILE = "eoy_report.csv"
 TEMP_FILE = "eoy_report_temp.csv"
 
 # --- INIT DRIVER ---
+# ✅ NEW GITHUB-ACTIONS READY VERSION:
 service = Service(ChromeDriverManager().install())
 options = webdriver.ChromeOptions()
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--headless=new')           # Headless (no GUI)
+options.add_argument('--no-sandbox')             # GitHub required
+options.add_argument('--disable-dev-shm-usage')  # GitHub required  
+options.add_argument('--disable-gpu')            # Headless required
+options.add_argument('--window-size=1920,1080')  # Fixed size
+options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 driver = webdriver.Chrome(service=service, options=options)
-driver.maximize_window()
+driver.set_window_size(1920, 1080)
+
 driver.get("https://customer.albertapayments.com/login")
 
 wait = WebDriverWait(driver, 20)
