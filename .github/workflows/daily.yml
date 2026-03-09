@@ -1,0 +1,34 @@
+name: Daily Store Update (10 AM EDT)
+on:
+  schedule:
+    - cron: '14 14 * * *'  # 10 AM EDT = 14:00 UTC
+  workflow_dispatch:       # Manual run button
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        pip install selenium webdriver-manager
+    
+    - name: Run scraper
+      env:
+        ALBERTA_EMAIL: ${{ secrets.ALBERTA_EMAIL }}
+        ALBERTA_PASSWORD: ${{ secrets.ALBERTA_PASSWORD }}
+      run: python scrape_daily.py
+    
+    - name: Commit CSV changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add eoy_report.csv
+        git diff --staged --quiet || git commit -m "Daily update: $(date)"
+        git push
