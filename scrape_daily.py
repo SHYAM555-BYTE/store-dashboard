@@ -23,8 +23,8 @@ from datetime import datetime
 import time
 
 # --- CONFIG ---
-EMAIL = "swikarpatel@gmail.com"
-PASSWORD = "302Hall$"
+EMAIL = os.getenv('ALBERTA_EMAIL')
+PASSWORD = os.getenv('ALBERTA_PASSWORD')
 OUTPUT_FILE = "eoy_report.csv"
 TEMP_FILE = "eoy_report_temp.csv"
 
