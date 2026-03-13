@@ -1,638 +1,715 @@
-
-<!-- Store Dashboard v1.0 - Live Data $(date) -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <title>Store Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- PapaParse -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- Chart.js Data Labels -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-<!-- CountUp.js UMD -->
 <script src="https://cdn.jsdelivr.net/npm/countup.js@2.6.2/dist/countUp.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <style>
-  * {
-    box-sizing: border-box;
+  /* ── DARK THEME (default) ── */
+  [data-theme="dark"] {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0f0f0;
+    --muted: #6b7280;
+    --card-hover-border: rgba(255,255,255,0.15);
+    --table-hover: #1c1c28;
+    --grid-line: rgba(255,255,255,0.04);
+    --axis-color: #9ca3af;
+    --chart-border: rgba(255,255,255,0.05);
+    --tooltip-bg: #13131a;
+    --select-arrow: %236b7280;
+    --grid-bg: rgba(0,229,255,0.03);
   }
 
+  /* ── LIGHT THEME ── */
+  [data-theme="light"] {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #e8edf3;
+    --border: rgba(0,0,0,0.08);
+    --text: #1a1a2e;
+    --muted: #64748b;
+    --card-hover-border: rgba(0,0,0,0.2);
+    --table-hover: #f1f5f9;
+    --grid-line: rgba(0,0,0,0.04);
+    --axis-color: #64748b;
+    --chart-border: rgba(0,0,0,0.06);
+    --tooltip-bg: #1a1a2e;
+    --select-arrow: %2364748b;
+    --grid-bg: rgba(0,180,200,0.02);
+  }
+
+  :root {
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #a855f7;
+    --green: #22d3a5;
+    --yellow: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-    padding: 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    margin: 0;
-    color: #f9fafb;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
     min-height: 100vh;
-    line-height: 1.5;
+    overflow-x: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-bg) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-bg) 1px, transparent 1px);
+    background-size: 60px 60px;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 30px 20px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+    text-align: center;
+    position: relative;
   }
 
   h1 {
-    text-align: center;
-    color: #fff;
-    margin: 0 0 15px 0;
-    font-size: clamp(24px, 6vw, 32px);
-    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(42px, 8vw, 80px);
+    letter-spacing: 4px;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 60%, var(--accent3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
   }
 
-  .mode-note {
-    text-align: center;
-    font-size: clamp(14px, 4vw, 16px);
-    color: rgba(255,255,255,0.9);
-    margin-bottom: 20px;
-    padding: 0 10px;
-  }
+  .subtitle { color: var(--muted); font-size: 16px; letter-spacing: 1px; }
 
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-bottom: 25px;
-    padding: 0 10px;
-  }
-
-  @media (min-width: 768px) {
-    .controls {
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      padding: 0;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .controls {
-      gap: 25px;
-    }
-  }
-
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    min-width: 280px;
-    flex: 1;
-    max-width: 100%;
-  }
-
-  @media (min-width: 768px) {
-    .control-group {
-      min-width: 250px;
-      max-width: 300px;
-    }
-  }
-
-  label {
-    font-size: clamp(14px, 3.5vw, 16px);
-    margin-bottom: 8px;
-    color: #e5e7eb;
+  /* ── THEME TOGGLE ── */
+  .theme-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
     font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
   }
+
+  .theme-toggle:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+  }
+
+  .theme-icon { font-size: 18px; }
+
+  /* ── REPORT TABS ── */
+  .report-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 8px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .tab-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    padding: 10px 28px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent3)); color: #000; }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .control-group { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
 
   select {
-    padding: 12px 16px;
-    font-size: clamp(14px, 4vw, 16px);
-    border-radius: 12px;
-    border: 2px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    min-height: 48px;
-    backdrop-filter: blur(10px);
-    -webkit-appearance: none;
-    -moz-appearance: none;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
     appearance: none;
-    width: 100%;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
   }
 
-  select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.3);
+  select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,255,0.1); }
+  select option { background: var(--surface2); color: var(--text); }
+  .hidden { display: none !important; }
+
+  /* ── KPIs ── */
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 36px; }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s, background 0.3s;
+    min-width: 0;
   }
 
-  select option {
-    background: #1f2937;
-    color: #fff;
-    padding: 10px;
+  .kpi:hover { transform: translateY(-3px); border-color: var(--card-hover-border); }
+
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 18px 18px 0 0; }
+  .kpi:nth-child(1)::before { background: linear-gradient(90deg, var(--accent), var(--accent3)); }
+  .kpi:nth-child(2)::before { background: linear-gradient(90deg, var(--accent2), var(--yellow)); }
+  .kpi:nth-child(3)::before { background: linear-gradient(90deg, var(--green), var(--accent)); }
+  .kpi:nth-child(4)::before { background: linear-gradient(90deg, var(--accent3), #ec4899); }
+  .kpi:nth-child(5)::before { background: linear-gradient(90deg, var(--yellow), var(--accent2)); }
+
+  .kpi-icon { font-size: 24px; margin-bottom: 8px; display: block; }
+  .kpi-label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-extra { font-size: 13px; color: var(--accent); margin-bottom: 6px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-value { font-family: 'Bebas Neue', sans-serif; font-size: clamp(20px, 2.2vw, 36px); letter-spacing: 1px; color: var(--text); line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; width: 100%; }
+
+  /* ── CHART ── */
+  .chart-section { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; margin-bottom: 30px; transition: background 0.3s, border-color 0.3s; }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .chart-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--text); }
+  .chart-title span { color: var(--accent); }
+  .chart-wrap { position: relative; height: clamp(320px, 45vh, 480px); }
+
+  /* ── TABLE ── */
+  .table-section { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; transition: background 0.3s, border-color 0.3s; }
+  .table-header { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; margin-bottom: 18px; color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: var(--table-hover); }
+  td { padding: 13px 16px; color: var(--text); white-space: nowrap; }
+  td.money { color: var(--green); font-weight: 500; font-variant-numeric: tabular-nums; }
+  td.highlight { color: var(--accent); font-weight: 600; }
+  td.store-name { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+  td.month-col { color: var(--yellow); font-weight: 500; }
+
+  .loading { text-align: center; padding: 60px; color: var(--muted); font-size: 16px; }
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 12px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(3, 1fr); }
   }
 
-  /* Custom select arrow */
-  .control-group::after {
-    content: '▼';
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 12px;
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(3, 1fr); }
+    .controls { grid-template-columns: repeat(2, 1fr); }
+    .chart-wrap { height: 360px; }
+    .theme-toggle span.label { display: none; }
   }
 
-  .stats {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
-    margin: 25px 0;
-    padding: 0 10px;
+  @media (max-width: 600px) {
+    .page { padding: 16px 12px; }
+    header { margin-bottom: 20px; }
+    h1 { font-size: 38px; letter-spacing: 2px; }
+    .subtitle { font-size: 13px; }
+    .theme-toggle { padding: 7px 12px; font-size: 13px; top: 0; right: 0; }
+    .report-tabs { width: 100%; justify-content: center; }
+    .tab-btn { font-size: 15px; padding: 8px 16px; }
+    .controls { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; border-radius: 14px; margin-bottom: 20px; }
+    label { font-size: 11px; }
+    select { font-size: 14px; padding: 9px 12px; }
+    .kpis { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .kpi { padding: 14px 12px; border-radius: 14px; }
+    .kpi-icon { font-size: 20px; margin-bottom: 5px; }
+    .kpi-label { font-size: 9px; }
+    .kpi-extra { font-size: 11px; }
+    .kpi-value { font-size: 22px; }
+    .chart-section { padding: 14px; border-radius: 14px; margin-bottom: 16px; }
+    .chart-title { font-size: 20px; }
+    .chart-wrap { height: 260px; }
+    .table-section { padding: 14px; border-radius: 14px; }
+    .table-header { font-size: 20px; margin-bottom: 10px; }
+    table { font-size: 13px; }
+    th { font-size: 10px; padding: 8px 10px; }
+    td { padding: 10px 10px; }
   }
 
-  @media (min-width: 768px) {
-    .stats {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 25px;
-      padding: 0;
-    }
+  @media (max-width: 420px) {
+    .controls { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .kpi-value { font-size: 20px; }
+    .chart-wrap { height: 220px; }
   }
 
-  @media (min-width: 1024px) {
-    .stats {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  .stat-box {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(20px);
-    padding: 20px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.2);
-    transition: transform 0.2s ease;
-  }
-
-  .stat-box:hover {
-    transform: translateY(-2px);
-  }
-
-  @media (hover: none) {
-    .stat-box:hover {
-      transform: none;
-    }
-  }
-
-  .stat-title {
-    font-size: clamp(16px, 4vw, 18px);
-    color: #fff;
-    margin-bottom: 6px;
-    font-weight: 700;
-  }
-
-  .stat-extra {
-    font-size: clamp(14px, 3.5vw, 16px);
-    color: rgba(255,255,255,0.9);
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  .stat-label {
-    font-size: 14px;
-    color: rgba(255,255,255,0.8);
-    margin-bottom: 10px;
-  }
-
-  .value {
-    font-size: clamp(24px, 8vw, 32px);
-    font-weight: 800;
-    color: #fff;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    margin: 0;
-  }
-
-  .chart-wrapper {
-    width: 100%;
-    height: clamp(350px, 50vh, 500px);
-    max-width: 1200px;
-    margin: 25px auto;
-    padding: 0 10px;
-  }
-
-  .chart-container {
-    width: 100%;
-    height: 100%;
-  }
-
-  canvas {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    width: 100% !important;
-    height: 100% !important;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-    border: 1px solid rgba(255,255,255,0.2);
-  }
-
-  .hidden {
-    display: none !important;
-  }
-
-  /* Mobile-specific optimizations */
-  @media (max-width: 480px) {
-    body {
-      padding: 10px;
-    }
-    
-    .controls {
-      padding: 0 5px;
-    }
-    
-    .control-group {
-      min-width: 100%;
-    }
-    
-    .stats {
-      padding: 0 5px;
-      gap: 15px;
-    }
-    
-    .stat-box {
-      padding: 18px 15px;
-    }
-    
-    .chart-wrapper {
-      padding: 0 5px;
-      height: clamp(300px, 45vh, 400px);
-    }
-  }
-
-  /* Landscape mobile */
   @media (max-height: 500px) and (orientation: landscape) {
-    .chart-wrapper {
-      height: 60vh;
-    }
-    
-    h1 {
-      margin-bottom: 10px;
-    }
-    
-    .mode-note {
-      display: none;
-    }
+    header { margin-bottom: 10px; }
+    h1 { font-size: 30px; }
+    .subtitle { display: none; }
+    .kpis { grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+    .kpi { padding: 8px 10px; }
+    .kpi-icon { display: none; }
+    .kpi-value { font-size: 18px; }
+    .chart-wrap { height: 180px; }
   }
 
-  /* High DPI displays */
-  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .stat-box, canvas {
-      border-width: 0.5px;
-    }
-  }
+  /* Always scrollable table */
+  #tableContainer { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 800px; }
 </style>
 </head>
 <body>
+<div class="page">
 
-<h1>🏪 Store Performance Dashboard</h1>
-<div class="mode-note">
-  📊 Year View: Compare stores by year | 🏢 Store View: Track one store across years
-</div>
+  <header>
+    <h1>Store Dashboard</h1>
+    <p class="subtitle" id="subtitleText">End of Year Report · All Stores</p>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">
+      <span class="theme-icon" id="themeIcon">☀️</span>
+      <span class="label" id="themeLabel">Light Mode</span>
+    </button>
+  </header>
 
-<div class="controls">
-  <div class="control-group">
-    <label for="modeSelect">📈 Mode</label>
-    <select id="modeSelect">
-      <option value="year">Year View (Compare All Stores)</option>
-      <option value="store">Store View (Track One Store)</option>
-    </select>
-  </div>
-
-  <div class="control-group" id="yearGroup">
-    <label for="yearSelect">📅 Year</label>
-    <select id="yearSelect"></select>
+  <!-- Report Tabs -->
+  <div class="report-tabs">
+    <button class="tab-btn active" id="tabYearly" onclick="switchReport('yearly')">📅 Yearly</button>
+    <button class="tab-btn" id="tabMonthly" onclick="switchReport('monthly')">📆 Monthly</button>
   </div>
 
-  <div class="control-group" id="storeGroup">
-    <label for="storeSelect">🏢 Store</label>
-    <select id="storeSelect"></select>
+  <!-- Controls -->
+  <div class="controls">
+    <div class="control-group">
+      <label>View Mode</label>
+      <select id="modeSelect"></select>
+    </div>
+    <div class="control-group" id="yearGroup">
+      <label>Year</label>
+      <select id="yearSelect"></select>
+    </div>
+    <div class="control-group hidden" id="mYearGroup">
+      <label>Year</label>
+      <select id="mYearSelect"></select>
+    </div>
+    <div class="control-group hidden" id="mMonthGroup">
+      <label>Month</label>
+      <select id="mMonthSelect"></select>
+    </div>
+    <div class="control-group hidden" id="storeGroup">
+      <label>Store</label>
+      <select id="storeSelect"></select>
+    </div>
+    <div class="control-group">
+      <label>Metric</label>
+      <select id="metricSelect">
+        <option value="Total Store Sales">💰 Total Store Sales</option>
+        <option value="Cash">💵 Cash</option>
+        <option value="Credit Card">💳 Credit Card</option>
+        <option value="Total Paidout">💸 Total Paidout</option>
+        <option value="Transaction Count">🔢 Transaction Count</option>
+        <option value="Taxable Sales">📋 Taxable Sales</option>
+        <option value="Non-Taxable Sales">📋 Non-Taxable Sales</option>
+      </select>
+    </div>
   </div>
 
-  <div class="control-group">
-    <label for="metricSelect">📊 Metric</label>
-    <select id="metricSelect">
-      <option value="Store Sales">💰 Store Sales</option>
-      <option value="Total Paidout">💸 Total Paidout</option>
-      <option value="Transaction Count">📱 Transactions</option>
-    </select>
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><span class="kpi-icon">💰</span><div class="kpi-label">Top Store Sales</div><div class="kpi-extra" id="salesExtra">—</div><div class="kpi-value" id="totalSales">$0</div></div>
+    <div class="kpi"><span class="kpi-icon">💵</span><div class="kpi-label">Top Cash</div><div class="kpi-extra" id="cashExtra">—</div><div class="kpi-value" id="totalCash">$0</div></div>
+    <div class="kpi"><span class="kpi-icon">💳</span><div class="kpi-label">Top Credit Card</div><div class="kpi-extra" id="creditExtra">—</div><div class="kpi-value" id="totalCredit">$0</div></div>
+    <div class="kpi"><span class="kpi-icon">💸</span><div class="kpi-label">Top Paidout</div><div class="kpi-extra" id="paidoutExtra">—</div><div class="kpi-value" id="totalPaidout">$0</div></div>
+    <div class="kpi"><span class="kpi-icon">🔢</span><div class="kpi-label">Top Transactions</div><div class="kpi-extra" id="txnExtra">—</div><div class="kpi-value" id="totalTxn">0</div></div>
   </div>
-</div>
 
-<div class="stats">
-  <div class="stat-box">
-    <div class="stat-title" id="salesTitle">Highest Sales</div>
-    <div class="stat-extra" id="salesExtra"></div>
-    <div class="stat-label">Store / Year</div>
-    <div class="value" id="totalSales">$0</div>
+  <!-- Chart -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <div class="chart-title" id="chartTitle">SALES <span>OVERVIEW</span></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="storeChart"></canvas>
+    </div>
   </div>
-  <div class="stat-box">
-    <div class="stat-title" id="paidoutTitle">Highest Paidout</div>
-    <div class="stat-extra" id="paidoutExtra"></div>
-    <div class="stat-label">Store / Year</div>
-    <div class="value" id="totalPaidout">$0</div>
-  </div>
-  <div class="stat-box">
-    <div class="stat-title" id="txnTitle">Highest Transactions</div>
-    <div class="stat-extra" id="txnExtra"></div>
-    <div class="stat-label">Store / Year</div>
-    <div class="value" id="totalTransactions">0</div>
-  </div>
-</div>
 
-<div class="chart-wrapper">
-  <div class="chart-container">
-    <canvas id="storeChart"></canvas>
+  <!-- Table -->
+  <div class="table-section">
+    <div class="table-header">DATA TABLE</div>
+    <div id="tableContainer"><div class="loading">Loading data</div></div>
   </div>
+
 </div>
 
 <script>
-// Register datalabels plugin
 Chart.register(ChartDataLabels);
 
-let rawData = [];
+let yearlyData = [];
+let monthlyData = [];
+let currentReport = 'yearly';
 let chart;
+let isDark = true;
 
-// Clean CSV numbers
+const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// Cutoff: April 2026 (last real month in data)
+const CUTOFF_YEAR = 2026;
+const CUTOFF_MONTH_IDX = 3; // April = index 3
+
 function toNumber(v) {
   if (!v) return 0;
-  const cleaned = String(v).replace(/[$,]/g, '').trim();
-  if (cleaned === '' || cleaned.toUpperCase() === 'N/A') return 0;
-  return parseFloat(cleaned);
+  const c = String(v).replace(/[$,]/g, '').trim();
+  if (!c || c.toUpperCase() === 'N/A') return 0;
+  return parseFloat(c) || 0;
 }
 
-// Load CSV
-Papa.parse('eoy_report.csv', {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: function(results) {
-    rawData = results.data;
-    initDashboard();
+function fmt(v, isMoney = true) {
+  if (isMoney) return '$' + toNumber(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return toNumber(v).toLocaleString();
+}
+
+function topRow(data, field) {
+  return data.reduce((best, row) => toNumber(row[field]) > toNumber((best||{})[field]) ? row : best, null);
+}
+
+function animCount(id, val, money = true) {
+  new countUp.CountUp(id, val, { prefix: money ? '$' : '', duration: 1, useGrouping: true, separator: ',', decimalPlaces: money ? 2 : 0 }).start();
+}
+
+// Theme toggle
+function toggleTheme() {
+  isDark = !isDark;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  if (chart) update(); // redraw chart with new colors
+}
+
+// Filter available months when year is selected
+function updateMonthDropdown() {
+  const mYear = parseInt(document.getElementById('mYearSelect').value);
+  const mMonthSel = document.getElementById('mMonthSelect');
+  const currentVal = mMonthSel.value;
+
+  // Get months that actually exist in data for this year
+  const availableMonths = [...new Set(
+    monthlyData
+      .filter(r => parseInt(r['Year']) === mYear)
+      .map(r => r['Month'])
+  )].sort((a,b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
+
+  mMonthSel.innerHTML = '';
+  availableMonths.forEach(m => {
+    const o = document.createElement('option');
+    o.value = o.textContent = m;
+    mMonthSel.appendChild(o);
+  });
+
+  // Try to keep previous selection, else pick last
+  if (availableMonths.includes(currentVal)) {
+    mMonthSel.value = currentVal;
+  } else {
+    mMonthSel.value = availableMonths[availableMonths.length - 1];
   }
+
+  onModeChange();
+}
+
+// Load both CSVs
+let loadedCount = 0;
+function onLoaded() {
+  loadedCount++;
+  if (loadedCount === 2) initDashboard();
+}
+
+Papa.parse('end_of_report.csv', {
+  download: true, header: true, skipEmptyLines: true,
+  complete: r => { yearlyData = r.data; onLoaded(); },
+  error: () => { yearlyData = []; onLoaded(); }
+});
+
+Papa.parse('end_of_month_report.csv', {
+  download: true, header: true, skipEmptyLines: true,
+  complete: r => { monthlyData = r.data; onLoaded(); },
+  error: () => { monthlyData = []; onLoaded(); }
 });
 
 function initDashboard() {
-  const years = [...new Set(rawData.map(r => parseInt(r['Year'])))]?.filter(y => y).sort((a,b)=>a-b) || [];
-  const stores = [...new Set(rawData.map(r => r['Store Name']))].filter(s => s).sort();
+  // Yearly years
+  const yYears = [...new Set(yearlyData.map(r => r['Year']))].filter(Boolean).sort();
+  const yearSel = document.getElementById('yearSelect');
+  yYears.forEach(y => { const o = document.createElement('option'); o.value = o.textContent = y; yearSel.appendChild(o); });
+  if (yYears.length) yearSel.value = yYears[yYears.length - 1];
 
-  const yearSelect = document.getElementById('yearSelect');
-  const storeSelect = document.getElementById('storeSelect');
+  // Monthly years only (months populated dynamically)
+  const mYears = [...new Set(monthlyData.map(r => r['Year']))].filter(Boolean).sort();
+  const mYearSel = document.getElementById('mYearSelect');
+  mYears.forEach(y => { const o = document.createElement('option'); o.value = o.textContent = y; mYearSel.appendChild(o); });
+  if (mYears.length) mYearSel.value = mYears[mYears.length - 1];
 
-  // Clear existing options
-  yearSelect.innerHTML = '';
-  storeSelect.innerHTML = '';
+  // Stores
+  const allStores = [...new Set([...yearlyData, ...monthlyData].map(r => r['Store Name']))].filter(Boolean).sort();
+  const storeSel = document.getElementById('storeSelect');
+  allStores.forEach(s => { const o = document.createElement('option'); o.value = o.textContent = s; storeSel.appendChild(o); });
+  if (allStores.length) storeSel.value = allStores[0];
 
-  years.forEach(y => {
-    const option = document.createElement('option');
-    option.value = y;
-    option.textContent = y;
-    yearSelect.appendChild(option);
-  });
+  document.getElementById('modeSelect').addEventListener('change', onModeChange);
+  document.getElementById('yearSelect').addEventListener('change', update);
+  document.getElementById('mYearSelect').addEventListener('change', updateMonthDropdown);
+  document.getElementById('mMonthSelect').addEventListener('change', update);
+  document.getElementById('storeSelect').addEventListener('change', update);
+  document.getElementById('metricSelect').addEventListener('change', update);
 
-  stores.forEach(s => {
-    const option = document.createElement('option');
-    option.value = s;
-    option.textContent = s;
-    storeSelect.appendChild(option);
-  });
-
-  // Set defaults if options exist
-  if (years.length > 0) yearSelect.value = years[years.length - 1];
-  if (stores.length > 0) storeSelect.value = stores[0];
-
-  // Event listeners
-  document.getElementById('modeSelect').addEventListener('change', handleModeChange);
-  document.getElementById('yearSelect').addEventListener('change', updateDashboard);
-  document.getElementById('storeSelect').addEventListener('change', updateDashboard);
-  document.getElementById('metricSelect').addEventListener('change', updateDashboard);
-
-  handleModeChange();
+  switchReport('yearly');
 }
 
-function handleModeChange() {
-  const mode = document.getElementById('modeSelect').value;
-  const yearGroup = document.getElementById('yearGroup');
-  const storeGroup = document.getElementById('storeGroup');
+function switchReport(type) {
+  currentReport = type;
+  document.getElementById('tabYearly').classList.toggle('active', type === 'yearly');
+  document.getElementById('tabMonthly').classList.toggle('active', type === 'monthly');
+  document.getElementById('subtitleText').textContent =
+    type === 'yearly' ? 'End of Year Report · All Stores' : 'End of Month Report · All Stores';
 
-  if (mode === 'year') {
-    yearGroup.classList.remove('hidden');
-    storeGroup.classList.add('hidden');
+  const modeSel = document.getElementById('modeSelect');
+  modeSel.innerHTML = type === 'yearly'
+    ? `<option value="year">📅 By Year (All Stores)</option><option value="store">🏪 By Store (All Years)</option>`
+    : `<option value="month">📆 By Month (All Stores)</option><option value="store">🏪 By Store (All Months)</option>`;
+
+  if (type === 'monthly') {
+    updateMonthDropdown();
   } else {
-    yearGroup.classList.add('hidden');
-    storeGroup.classList.remove('hidden');
+    onModeChange();
   }
-  updateDashboard();
 }
 
-function updateDashboard() {
+function onModeChange() {
   const mode = document.getElementById('modeSelect').value;
-  const yearSelect = document.getElementById('yearSelect');
-  const storeSelect = document.getElementById('storeSelect');
-  
-  const year = parseInt(yearSelect.value);
-  const store = storeSelect.value;
+  const isMonthly = currentReport === 'monthly';
+  const isStore = mode === 'store';
+
+  document.getElementById('yearGroup').classList.toggle('hidden', isMonthly || isStore);
+  document.getElementById('mYearGroup').classList.toggle('hidden', !isMonthly || isStore);
+  document.getElementById('mMonthGroup').classList.toggle('hidden', !isMonthly || isStore);
+  document.getElementById('storeGroup').classList.toggle('hidden', !isStore);
+
+  update();
+}
+
+function getChartColors() {
+  return isDark
+    ? { axis: '#9ca3af', grid: 'rgba(255,255,255,0.04)', tooltipBg: '#13131a' }
+    : { axis: '#64748b', grid: 'rgba(0,0,0,0.05)', tooltipBg: '#1a1a2e' };
+}
+
+function update() {
+  const mode = document.getElementById('modeSelect').value;
   const metric = document.getElementById('metricSelect').value;
+  const isMoney = metric !== 'Transaction Count';
+  const store = document.getElementById('storeSelect').value;
 
-  // === KPIs ===
-  let salesRow, paidoutRow, txnRow;
+  let subset = [];
+  let chartLabels = [];
 
-  if (mode === 'year' && !isNaN(year)) {
-    const yearData = rawData.filter(r => parseInt(r['Year']) === year);
-    
-    salesRow = yearData.reduce((max, row) => 
-      toNumber(row['Store Sales']) > toNumber(max['Store Sales']) ? row : max, {}
-    );
-    
-    paidoutRow = yearData.reduce((max, row) => 
-      toNumber(row['Total Paidout']) > toNumber(max['Total Paidout']) ? row : max, {}
-    );
-    
-    txnRow = yearData.reduce((max, row) => 
-      toNumber(row['Transaction Count']) > toNumber(max['Transaction Count']) ? row : max, {}
-    );
-
-    document.getElementById('salesTitle').textContent = `Highest Sales (${year})`;
-    document.getElementById('paidoutTitle').textContent = `Highest Paidout (${year})`;
-    document.getElementById('txnTitle').textContent = `Highest Transactions (${year})`;
-    
-    document.getElementById('salesExtra').textContent = salesRow['Store Name'] || '';
-    document.getElementById('paidoutExtra').textContent = paidoutRow['Store Name'] || '';
-    document.getElementById('txnExtra').textContent = txnRow['Store Name'] || '';
-
-  } else if (store) {
-    const storeData = rawData.filter(r => r['Store Name'] === store);
-    
-    salesRow = storeData.reduce((max, row) => 
-      toNumber(row['Store Sales']) > toNumber(max['Store Sales']) ? row : max, {}
-    );
-    
-    paidoutRow = storeData.reduce((max, row) => 
-      toNumber(row['Total Paidout']) > toNumber(max['Total Paidout']) ? row : max, {}
-    );
-    
-    txnRow = storeData.reduce((max, row) => 
-      toNumber(row['Transaction Count']) > toNumber(max['Transaction Count']) ? row : max, {}
-    );
-
-    document.getElementById('salesTitle').textContent = 'Highest Sales';
-    document.getElementById('paidoutTitle').textContent = 'Highest Paidout';
-    document.getElementById('txnTitle').textContent = 'Highest Transactions';
-    
-    document.getElementById('salesExtra').textContent = salesRow['Year'] ? `Year ${salesRow['Year']}` : '';
-    document.getElementById('paidoutExtra').textContent = paidoutRow['Year'] ? `Year ${paidoutRow['Year']}` : '';
-    document.getElementById('txnExtra').textContent = txnRow['Year'] ? `Year ${txnRow['Year']}` : '';
+  if (currentReport === 'yearly') {
+    const year = document.getElementById('yearSelect').value;
+    if (mode === 'year') {
+      subset = yearlyData.filter(r => r['Year'] === year);
+      chartLabels = subset.map(r => r['Store Name']);
+    } else {
+      subset = yearlyData.filter(r => r['Store Name'] === store).sort((a,b) => a['Year'] - b['Year']);
+      chartLabels = subset.map(r => r['Year']);
+    }
+  } else {
+    const mYear = document.getElementById('mYearSelect').value;
+    const mMonth = document.getElementById('mMonthSelect').value;
+    if (mode === 'month') {
+      subset = monthlyData.filter(r => r['Year'] === mYear && r['Month'] === mMonth);
+      chartLabels = subset.map(r => r['Store Name']);
+    } else {
+      subset = monthlyData
+        .filter(r => r['Store Name'] === store)
+        .sort((a,b) => {
+          if (a['Year'] !== b['Year']) return a['Year'] - b['Year'];
+          return MONTH_ORDER.indexOf(a['Month']) - MONTH_ORDER.indexOf(b['Month']);
+        });
+      chartLabels = subset.map(r => `${r['Month'].slice(0,3)} ${r['Year']}`);
+    }
   }
 
-  // Animate KPIs
-  const salesVal = salesRow ? toNumber(salesRow['Store Sales']) : 0;
-  const paidoutVal = paidoutRow ? toNumber(paidoutRow['Total Paidout']) : 0;
-  const txnVal = txnRow ? toNumber(txnRow['Transaction Count']) : 0;
+  // KPIs
+  const fields = ['Total Store Sales','Cash','Credit Card','Total Paidout','Transaction Count'];
+  const ids    = ['totalSales','totalCash','totalCredit','totalPaidout','totalTxn'];
+  const extras = ['salesExtra','cashExtra','creditExtra','paidoutExtra','txnExtra'];
+  const moneyF = [true,true,true,true,false];
 
-  // Destroy existing counters
-  document.querySelectorAll('.countup').forEach(el => el.classList.remove('countup'));
-  
-  new countUp.CountUp('totalSales', salesVal, { 
-    prefix: '$', 
-    duration: 1.2,
-    useEasing: true,
-    useGrouping: true,
-    separator: ','
-  }).start();
-  
-  new countUp.CountUp('totalPaidout', paidoutVal, { 
-    prefix: '$', 
-    duration: 1.2,
-    useEasing: true,
-    useGrouping: true,
-    separator: ','
-  }).start();
-  
-  new countUp.CountUp('totalTransactions', txnVal, { 
-    duration: 1.2,
-    useEasing: true,
-    useGrouping: true,
-    separator: ','
-  }).start();
+  fields.forEach((f,i) => {
+    const row = topRow(subset, f);
+    if (!row) return;
+    let label = mode === 'store'
+      ? (currentReport === 'monthly' ? `${row['Month']} ${row['Year']}` : `Year ${row['Year']}`)
+      : (row['Store Name'] || '');
+    document.getElementById(extras[i]).textContent = label || '—';
+    animCount(ids[i], toNumber(row[f]), moneyF[i]);
+  });
 
-  // === CHART ===
-  let labels = [], data = [], chartTitle = '';
+  // Chart colors
+  const colors = getChartColors();
+  const data = subset.map(r => toNumber(r[metric]));
+  const palette = ['#00e5ff','#ff6b35','#a855f7','#22d3a5','#fbbf24','#ec4899','#3b82f6','#10b981'];
+  const bgColors = chartLabels.map((_,i) => palette[i % palette.length] + 'cc');
+  const borderColors = chartLabels.map((_,i) => palette[i % palette.length]);
 
-  if (mode === 'year' && !isNaN(year)) {
-    const yearData = rawData.filter(r => parseInt(r['Year']) === year);
-    labels = yearData.map(r => r['Store Name']).slice(0, 15); // Limit for mobile
-    data = yearData.map(r => 
-      metric === 'Transaction Count' ? toNumber(r['Transaction Count']) : toNumber(r[metric])
-    ).slice(0, 15);
-    chartTitle = `${metric} (${year})`;
-  } else if (store) {
-    const storeData = rawData.filter(r => r['Store Name'] === store).sort((a,b) => a['Year'] - b['Year']);
-    labels = storeData.map(r => r['Year']);
-    data = storeData.map(r => 
-      metric === 'Transaction Count' ? toNumber(r['Transaction Count']) : toNumber(r[metric])
-    );
-    chartTitle = `${metric} - ${store}`;
-  }
-
-  const colors = [
-    '#3b82f6','#10b981','#f97316','#ef4444','#8b5cf6','#06b6d4','#eab308','#ec4899',
-    '#10b981','#f97316','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#eab308'
-  ];
-  const backgroundColors = labels.map((_, i) => colors[i % colors.length]);
+  document.getElementById('chartTitle').innerHTML = metric.toUpperCase().replace(' ','&nbsp;<span>') + '</span>';
 
   if (chart) chart.destroy();
-
   const ctx = document.getElementById('storeChart').getContext('2d');
   chart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: chartTitle,
-        data: data,
-        backgroundColor: backgroundColors,
-        borderRadius: window.innerWidth < 768 ? 4 : 8,
-        borderSkipped: false,
-      }]
-    },
+    data: { labels: chartLabels, datasets: [{ data, backgroundColor: bgColors, borderColor: borderColors, borderWidth: 2, borderRadius: 8, borderSkipped: false }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        intersect: false,
-        mode: 'index'
-      },
       plugins: {
         legend: { display: false },
-        title: {
-          display: true,
-          text: chartTitle,
-          color: '#fff',
-          font: { size: Math.min(24, window.innerWidth * 0.04), weight: 'bold' },
-          padding: { top: 15, bottom: 15 }
-        },
+        title: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(0,0,0,0.9)',
-          titleFont: { size: Math.min(14, window.innerWidth * 0.035) },
-          bodyFont: { size: Math.min(14, window.innerWidth * 0.035) },
-          cornerRadius: 8,
-          displayColors: false
+          backgroundColor: colors.tooltipBg,
+          borderColor: 'rgba(0,229,255,0.4)',
+          borderWidth: 1,
+          titleColor: '#fff',
+          bodyColor: '#00e5ff',
+          cornerRadius: 12,
+          padding: 18,
+          displayColors: false,
+          titleFont: { size: 18, weight: '700', family: 'DM Sans' },
+          bodyFont: { size: 22, weight: '800', family: 'DM Sans' },
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => isMoney ? '$' + ctx.raw.toLocaleString('en-US', {minimumFractionDigits:2}) : ctx.raw.toLocaleString()
+          }
         },
         datalabels: {
-          anchor: 'end',
-          align: window.innerWidth < 768 ? 'top' : 'end',
-          color: '#fff',
-          font: { 
-            weight: 'bold', 
-            size: Math.min(12, window.innerWidth * 0.03)
-          },
-          formatter: function(value) {
-            return metric === 'Transaction Count' 
-              ? value.toLocaleString() 
-              : '$' + value.toLocaleString();
-          }
+          anchor: 'end', align: 'end',
+          color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+          font: { size: window.innerWidth < 600 ? 10 : 13, weight: '600' },
+          formatter: v => isMoney ? '$' + (v/1000).toFixed(0) + 'k' : v.toLocaleString(),
+          clip: false
         }
       },
       scales: {
         x: {
-          ticks: { 
-            color: '#e5e7eb', 
-            font: { size: Math.min(12, window.innerWidth * 0.03) },
-            maxRotation: 45,
-            minRotation: 0
-          },
-          grid: { display: false }
+          ticks: { color: colors.axis, font: { size: window.innerWidth < 600 ? 11 : 13 }, maxRotation: 40 },
+          grid: { display: false },
+          border: { color: colors.grid }
         },
         y: {
           beginAtZero: true,
-          ticks: {
-            color: '#d1d5db',
-            font: { size: Math.min(12, window.innerWidth * 0.03) },
-            callback: function(value) {
-              return metric === 'Transaction Count' 
-                ? value.toLocaleString() 
-                : '$' + value.toLocaleString();
-            }
-          },
-          grid: { color: 'rgba(255,255,255,0.1)' }
+          ticks: { color: colors.axis, font: { size: window.innerWidth < 600 ? 11 : 13 }, callback: v => isMoney ? '$' + (v/1000).toFixed(0) + 'k' : v.toLocaleString() },
+          grid: { color: colors.grid },
+          border: { display: false }
         }
       },
-      animation: {
-        duration: 800,
-        easing: 'easeOutQuart'
-      }
+      animation: { duration: 700, easing: 'easeOutQuart' },
+      layout: { padding: { top: 30 } }
     },
     plugins: [ChartDataLabels]
   });
 
-  // Handle resize for responsiveness
-  window.addEventListener('resize', () => {
-    if (chart) {
-      chart.resize();
-      chart.update('none');
-    }
-  });
-}
-</script>
+  // Table
+  const isMonthly = currentReport === 'monthly';
+  const cols = isMonthly
+    ? ['Store Name','Year','Month','Total Store Sales','Taxable Sales','Non-Taxable Sales','Cash','Credit Card','Total Paidout','Transaction Count']
+    : ['Store Name','Year','Total Store Sales','Taxable Sales','Non-Taxable Sales','Cash','Credit Card','Total Paidout','Transaction Count'];
 
+  let html = `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  subset.forEach(row => {
+    html += '<tr>';
+    cols.forEach(c => {
+      if (c === 'Store Name') html += `<td class="store-name">${row[c]||'—'}</td>`;
+      else if (c === 'Year') html += `<td class="highlight">${row[c]||'—'}</td>`;
+      else if (c === 'Month') html += `<td class="month-col">${row[c]||'—'}</td>`;
+      else if (c === 'Transaction Count') html += `<td>${toNumber(row[c]).toLocaleString()}</td>`;
+      else html += `<td class="money">${fmt(row[c])}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('tableContainer').innerHTML = html;
+}
+
+window.addEventListener('resize', () => { if (chart) chart.resize(); });
+</script>
 </body>
 </html>
