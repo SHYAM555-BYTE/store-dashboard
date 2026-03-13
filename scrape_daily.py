@@ -223,14 +223,17 @@ wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a.change_store
 store_links = driver.find_elements(By.CSS_SELECTOR, 'a.change_store')
 stores = []
 for link in store_links:
-    name    = link.text.strip()
+    # Use innerText and strip all whitespace/newlines
+    name    = ' '.join(link.get_attribute('innerText').split())
     onclick = link.get_attribute('onclick')
     form_id = onclick.split("getElementById('")[1].split("')")[0]
-    if name:  # only add stores with a valid name
+    if name:
         stores.append({'name': name, 'form_id': form_id})
     else:
         print(f'  ⚠️  Skipping store link with empty name, form_id={form_id}')
 
+wait.until(EC.element_to_be_clickable((By.CLASS_NAME, 'stores-menu'))).click()
+print(f'✅ Found {len(stores)} stores: {[s["name"] for s in stores]}')
 # Close the menu
 wait.until(EC.element_to_be_clickable((By.CLASS_NAME, 'stores-menu'))).click()
 print(f'✅ Found {len(stores)} stores: {[s["name"] for s in stores]}')
