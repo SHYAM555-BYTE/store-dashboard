@@ -4,11 +4,16 @@ on:
     - cron: '14 14 * * *'  # 10 AM EDT = 14:00 UTC
   workflow_dispatch:       # Manual run button
 
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Setup Python
       uses: actions/setup-python@v5
