@@ -247,19 +247,19 @@ for store in stores:
     driver.execute_script(f"document.getElementById('{store['form_id']}').submit();")
 
     # Wait until the stores-menu confirms the store switch
-def store_switched(d):
+    def store_switched(d):
+        try:
+            return store_name.split('[')[0].strip().lower() in \
+                   d.find_element(By.CLASS_NAME, 'stores-menu').text.strip().lower()
+        except StaleElementReferenceException:
+            return False
+    
     try:
-        return store_name.split('[')[0].strip().lower() in \
-               d.find_element(By.CLASS_NAME, 'stores-menu').text.strip().lower()
-    except StaleElementReferenceException:
-        return False
-
-try:
-    wait.until(store_switched)
-    print(f'  ✅ Store switch confirmed')
-except TimeoutException:
-    print(f'  ❌ Store switch timed out for {store_name}, skipping')
-    continue
+        wait.until(store_switched)
+        print(f'  ✅ Store switch confirmed')
+    except TimeoutException:
+        print(f'  ❌ Store switch timed out for {store_name}, skipping')
+        continue
 
     # EOY — overwrite current year
     eoy_row = scrape_eoy(driver, store_name)
