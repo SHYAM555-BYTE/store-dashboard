@@ -10,6 +10,7 @@ from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 import csv, os
 from datetime import datetime
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 # ══════════════════════════════════════════════════════
 # CONFIG
@@ -246,13 +247,19 @@ for store in stores:
     driver.execute_script(f"document.getElementById('{store['form_id']}').submit();")
 
     # Wait until the stores-menu confirms the store switch
+def store_switched(d):
     try:
-        wait.until(lambda d: store_name.split('[')[0].strip().lower() in
-                   d.find_element(By.CLASS_NAME, 'stores-menu').text.strip().lower())
-        print(f'  ✅ Store switch confirmed')
-    except TimeoutException:
-        print(f'  ❌ Store switch timed out for {store_name}, skipping')
-        continue
+        return store_name.split('[')[0].strip().lower() in \
+               d.find_element(By.CLASS_NAME, 'stores-menu').text.strip().lower()
+    except StaleElementReferenceException:
+        return False
+
+try:
+    wait.until(store_switched)
+    print(f'  ✅ Store switch confirmed')
+except TimeoutException:
+    print(f'  ❌ Store switch timed out for {store_name}, skipping')
+    continue
 
     # EOY — overwrite current year
     eoy_row = scrape_eoy(driver, store_name)
