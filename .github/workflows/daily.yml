@@ -39,7 +39,7 @@ jobs:
         git push
 
     - name: Send success email
-      if: success()
+      if: ${{ success() && !cancelled() }}
       run: |
         curl -s -X POST https://api.resend.com/emails \
           -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
@@ -52,7 +52,7 @@ jobs:
           }'
 
     - name: Send failure email
-      if: failure()
+      if: ${{ failure() && !cancelled() }}
       run: |
         curl -s -X POST https://api.resend.com/emails \
           -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
@@ -62,4 +62,5 @@ jobs:
             "to": "${{ secrets.NOTIFY_EMAIL }}",
             "subject": "❌ Daily scrape failed – ${{ github.run_id }}",
             "text": "Your daily store scrape failed today.\n\nCheck logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }'        "text": "Your daily store scrape failed today.\n\nCheck logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }'
