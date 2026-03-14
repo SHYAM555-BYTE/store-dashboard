@@ -496,13 +496,17 @@ function onLoaded() {
 
 const bust = Date.now();
 Papa.parse(`end_of_report.csv?v=${bust}`, {
-  download: true, header: true, skipEmptyLines: true, ...
+  download: true, header: true, skipEmptyLines: true,
+  complete: r => { yearlyData = r.data; onLoaded(); },
+  error: () => { yearlyData = []; onLoaded(); }
 });
 
 Papa.parse(`end_of_month_report.csv?v=${bust}`, {
-  download: true, header: true, skipEmptyLines: true, ...
+  download: true, header: true, skipEmptyLines: true,
+  complete: r => { monthlyData = r.data; onLoaded(); },
+  error: () => { monthlyData = []; onLoaded(); }
 });
-function initDashboard() {
+  function initDashboard() {
   // Yearly years
   const yYears = [...new Set(yearlyData.map(r => r['Year']))].filter(Boolean).sort();
   const yearSel = document.getElementById('yearSelect');
