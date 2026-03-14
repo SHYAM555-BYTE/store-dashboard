@@ -14,22 +14,22 @@ jobs:
     - uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         pip install selenium webdriver-manager
-    
+
     - name: Run scraper
       env:
         ALBERTA_EMAIL: ${{ secrets.ALBERTA_EMAIL }}
         ALBERTA_PASSWORD: ${{ secrets.ALBERTA_PASSWORD }}
       run: python scrape_daily.py
-    
+
     - name: Commit CSV changes
       run: |
         git config --local user.email "action@github.com"
@@ -37,3 +37,22 @@ jobs:
         git add end_of_report.csv end_of_month_report.csv
         git diff --staged --quiet || git commit -m "Daily update: $(date)"
         git push
+
+    - name: Send failure email
+      if: failure()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        to: ${{ secrets.NOTIFY_EMAIL }}
+        from: Store Dashboard Bot
+        subject: "❌ Daily scrape failed – ${{ github.run_id }}"
+        body: |
+          Your daily store scrape failed today.
+
+          Run ID: ${{ github.run_id }}
+
+          Check the logs here:
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
