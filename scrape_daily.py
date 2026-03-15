@@ -74,9 +74,14 @@ def write_csv(filepath, data_dict, fieldnames):
     print(f'  💾 Saved {filepath} ({len(rows)} records)')
 
 # ══════════════════════════════════════════════════════
-# DYNAMIC FIELD SCRAPER — no hardcoded XPaths
+# DYNAMIC FIELD SCRAPER
 # ══════════════════════════════════════════════════════
 def scrape_fields(driver):
+    """
+    Dynamically reads all label->value pairs from the report table.
+    Normalizes labels to Title Case to match build_row keys.
+    Skips stale elements gracefully.
+    """
     results = {}
     rows = driver.find_elements(By.CSS_SELECTOR, "tr")
 
@@ -84,12 +89,13 @@ def scrape_fields(driver):
         try:
             tds = row.find_elements(By.TAG_NAME, "td")
             if len(tds) >= 2:
+                # Clean label
                 label = tds[0].text.strip()
                 label = re.sub(r'\s*\([^)]*\)', '', label).strip()
                 label = ' '.join(label.split())
-                # ✅ Normalize to Title Case so it matches build_row keys
-                label = label.title()
+                label = label.title()  # TAXABLE SALES → Taxable Sales
 
+                # Get value from button if present, else plain td text
                 try:
                     value = tds[1].find_element(By.TAG_NAME, "button").text.strip()
                 except:
@@ -99,7 +105,7 @@ def scrape_fields(driver):
                     results[label] = value
 
         except StaleElementReferenceException:
-            continue  # ✅ Skip stale rows instead of crashing
+            continue  # skip stale rows
 
     if results:
         print(f'    🔍 Fields found: {list(results.keys())}')
@@ -107,8 +113,12 @@ def scrape_fields(driver):
         print(f'    ⚠️  No fields found on page')
 
     return results
-    
+
 def build_row(base, fields):
+    """
+    Maps scraped dynamic fields into standard CSV columns.
+    All keys are Title Case to match label.title() normalization.
+    """
     row = {
         **base,
         'Taxable Sales':     fields.get('Taxable Sales',     'N/A'),
@@ -125,6 +135,7 @@ def build_row(base, fields):
         print(f'    ⚠️  Missing fields: {bad}')
 
     return row
+
 # ══════════════════════════════════════════════════════
 # SCRAPE EOY — current year only
 # ══════════════════════════════════════════════════════
@@ -143,7 +154,6 @@ def scrape_eoy(driver, store_name):
         submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
         submit.click()
 
-        # Wait for table to load
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
 
         fields = scrape_fields(driver)
@@ -184,7 +194,6 @@ def scrape_eom(driver, store_name):
         submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
         submit.click()
 
-        # Wait for table to load
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
 
         fields = scrape_fields(driver)
