@@ -1,16 +1,16 @@
 import subprocess
 subprocess.run(['pip', 'install', 'selenium', 'webdriver-manager', '-q'], check=True)
 
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 import csv, os
 from datetime import datetime
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 # ══════════════════════════════════════════════════════
 # CONFIG
@@ -45,7 +45,6 @@ def read_csv(filepath):
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames or []
         for row in reader:
-            # Skip any rows with empty store names
             if not row.get('Store Name', '').strip():
                 continue
             key = (row['Store Name'].strip(), row['Year'].strip(), row['Month'].strip()) \
@@ -56,7 +55,6 @@ def read_csv(filepath):
     return data, fieldnames
 
 def write_csv(filepath, data_dict, fieldnames):
-    # Filter out any rows with empty store names before writing
     clean_dict = {k: v for k, v in data_dict.items()
                   if v.get('Store Name', '').strip()}
 
@@ -76,6 +74,67 @@ def write_csv(filepath, data_dict, fieldnames):
     print(f'  💾 Saved {filepath} ({len(rows)} records)')
 
 # ══════════════════════════════════════════════════════
+# DYNAMIC FIELD SCRAPER — no hardcoded XPaths
+# ══════════════════════════════════════════════════════
+def scrape_fields(driver):
+    """
+    Dynamically reads all label->value pairs from the report table.
+    Strips annotations like (A), (B), (C=A+B) from labels.
+    No hardcoded field names or XPaths.
+    """
+    results = {}
+    rows = driver.find_elements(By.CSS_SELECTOR, "tr")
+
+    for row in rows:
+        tds = row.find_elements(By.TAG_NAME, "td")
+        if len(tds) >= 2:
+            # Clean label — strip (A), (B=...) annotations and extra whitespace
+            label = tds[0].text.strip()
+            label = re.sub(r'\s*\([^)]*\)', '', label).strip()
+            label = ' '.join(label.split())
+
+            # Get value from button if present, else plain td text
+            try:
+                value = tds[1].find_element(By.TAG_NAME, "button").text.strip()
+            except:
+                value = tds[1].text.strip()
+
+            if label and value:
+                results[label] = value
+
+    # Debug — print what was found
+    if results:
+        print(f'    🔍 Fields found: {list(results.keys())}')
+    else:
+        print(f'    ⚠️  No fields found on page')
+
+    return results
+
+def build_row(base, fields):
+    """
+    Maps scraped dynamic fields into a standard row dict.
+    Uses .get() with 'N/A' fallback — no hardcoded XPaths.
+    Warns about any missing fields.
+    """
+    row = {
+        **base,
+        'Taxable Sales':     fields.get('Taxable Sales',     'N/A'),
+        'Non-Taxable Sales': fields.get('Non-Taxable Sales', 'N/A'),
+        'Total Store Sales': fields.get('Total Store Sales', 'N/A'),
+        'Cash':              fields.get('CASH',              'N/A'),
+        'Credit Card':       fields.get('CREDIT CARD',       'N/A'),
+        'Transaction Count': fields.get('Transaction Count', 'N/A'),
+        'Total Paidout':     fields.get('Total Paidout',     'N/A'),
+    }
+
+    # Warn about any N/A fields
+    bad = [k for k, v in row.items() if v == 'N/A' and k not in base]
+    if bad:
+        print(f'    ⚠️  Missing fields: {bad}')
+
+    return row
+
+# ══════════════════════════════════════════════════════
 # SCRAPE EOY — current year only
 # ══════════════════════════════════════════════════════
 def scrape_eoy(driver, store_name):
@@ -87,33 +146,23 @@ def scrape_eoy(driver, store_name):
     driver.get('https://customer.albertapayments.com/eoyreport')
 
     try:
-        # Wait for year dropdown to be present, then select year
         year_select = wait.until(EC.presence_of_element_located((By.ID, 'selectYear')))
         Select(year_select).select_by_value(CURRENT_YEAR)
 
-        # Wait for submit button to be clickable, then click
         submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
         submit.click()
 
-        # Wait until results table loads
-        wait.until(EC.presence_of_element_located((By.XPATH, "//td[contains(text(),'Taxable Sales')]")))
+        # Wait for table to load
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
 
-        row = {
-            'Year':              CURRENT_YEAR,
-            'Store Name':        store_name,
-            'Taxable Sales':     get_text(driver, "//td[contains(text(),'Taxable Sales')]/following-sibling::td/button"),
-            'Non-Taxable Sales': get_text(driver, "//td[contains(text(),'Non-Taxable Sales')]/following-sibling::td/button"),
-            'Total Store Sales': get_text(driver, "//td[contains(., 'Total Store')]/following-sibling::td/button"),
-            'Cash':              get_text(driver, "//td[contains(text(),'CASH')]/following-sibling::td/button"),
-            'Credit Card':       get_text(driver, "//td[contains(text(),'CREDIT CARD')]/following-sibling::td/button"),
-            'Transaction Count': get_text(driver, "//td[contains(text(),'Transaction Count')]/following-sibling::td/button"),
-            'Total Paidout':     get_text(driver, "//td[contains(text(),'Total Paidout')]/following-sibling::td/button"),
-        }
+        fields = scrape_fields(driver)
+        row = build_row({'Year': CURRENT_YEAR, 'Store Name': store_name}, fields)
+
         print(f"    ✅ EOY {CURRENT_YEAR} → Sales={row['Total Store Sales']}")
         return row
 
     except TimeoutException:
-        print(f'    ❌ EOY timed out waiting for results for {store_name}')
+        print(f'    ❌ EOY timed out for {store_name}')
         return None
     except Exception as e:
         print(f'    ❌ EOY failed: {e}')
@@ -130,48 +179,38 @@ def scrape_eom(driver, store_name):
     wait = WebDriverWait(driver, 15)
     driver.get('https://customer.albertapayments.com/eomreport')
 
-    rows = []
     month_name = MONTH_NAMES[CURRENT_MONTH]
     month_val  = f'{CURRENT_MONTH:02d}'
     print(f'    📅 {month_name} {CURRENT_YEAR}', end=' ... ')
 
     try:
-        # Wait for year dropdown and select year
         year_select = wait.until(EC.presence_of_element_located((By.ID, 'year')))
         Select(year_select).select_by_value(CURRENT_YEAR)
 
-        # Wait for month dropdown to be ready, then select month
         month_select = wait.until(EC.element_to_be_clickable((By.ID, 'month')))
         Select(month_select).select_by_value(month_val)
 
-        # Wait for submit to be clickable, then click
         submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
         submit.click()
 
-        # Wait until results table loads
-        wait.until(EC.presence_of_element_located((By.XPATH, "//td[contains(text(),'Taxable Sales')]")))
+        # Wait for table to load
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
 
-        row = {
-            'Store Name':        store_name,
-            'Year':              CURRENT_YEAR,
-            'Month':             month_name,
-            'Taxable Sales':     get_text(driver, "//td[contains(text(),'Taxable Sales')]/following-sibling::td/button"),
-            'Non-Taxable Sales': get_text(driver, "//td[contains(text(),'Non-Taxable Sales')]/following-sibling::td/button"),
-            'Total Store Sales': get_text(driver, "//td[contains(., 'Total Store')]/following-sibling::td/button"),
-            'Cash':              get_text(driver, "//td[contains(text(),'CASH')]/following-sibling::td/button"),
-            'Credit Card':       get_text(driver, "//td[contains(text(),'CREDIT CARD')]/following-sibling::td/button"),
-            'Transaction Count': get_text(driver, "//td[contains(text(),'Transaction Count')]/following-sibling::td/button"),
-            'Total Paidout':     get_text(driver, "//td[contains(text(),'Total Paidout')]/following-sibling::td/button"),
-        }
+        fields = scrape_fields(driver)
+        row = build_row(
+            {'Store Name': store_name, 'Year': CURRENT_YEAR, 'Month': month_name},
+            fields
+        )
+
         print(f"✅ Sales={row['Total Store Sales']}")
-        rows.append(row)
+        return [row]
 
     except TimeoutException:
         print(f'❌ Timed out waiting for results')
+        return []
     except Exception as e:
         print(f'❌ {e}')
-
-    return rows
+        return []
 
 # ══════════════════════════════════════════════════════
 # MAIN RUN
@@ -224,7 +263,6 @@ wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a.change_store
 store_links = driver.find_elements(By.CSS_SELECTOR, 'a.change_store')
 stores = []
 for link in store_links:
-    # Use innerText and strip all whitespace/newlines
     name    = ' '.join(link.get_attribute('innerText').split())
     onclick = link.get_attribute('onclick')
     form_id = onclick.split("getElementById('")[1].split("')")[0]
@@ -235,9 +273,6 @@ for link in store_links:
 
 wait.until(EC.element_to_be_clickable((By.CLASS_NAME, 'stores-menu'))).click()
 print(f'✅ Found {len(stores)} stores: {[s["name"] for s in stores]}')
-# Close the menu
-wait.until(EC.element_to_be_clickable((By.CLASS_NAME, 'stores-menu'))).click()
-print(f'✅ Found {len(stores)} stores: {[s["name"] for s in stores]}')
 
 # Loop all stores
 for store in stores:
@@ -246,14 +281,13 @@ for store in stores:
 
     driver.execute_script(f"document.getElementById('{store['form_id']}').submit();")
 
-    # Wait until the stores-menu confirms the store switch
     def store_switched(d):
         try:
             return store_name.split('[')[0].strip().lower() in \
                    d.find_element(By.CLASS_NAME, 'stores-menu').text.strip().lower()
         except StaleElementReferenceException:
             return False
-    
+
     try:
         wait.until(store_switched)
         print(f'  ✅ Store switch confirmed')
