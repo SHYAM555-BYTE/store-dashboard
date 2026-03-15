@@ -77,63 +77,54 @@ def write_csv(filepath, data_dict, fieldnames):
 # DYNAMIC FIELD SCRAPER — no hardcoded XPaths
 # ══════════════════════════════════════════════════════
 def scrape_fields(driver):
-    """
-    Dynamically reads all label->value pairs from the report table.
-    Strips annotations like (A), (B), (C=A+B) from labels.
-    No hardcoded field names or XPaths.
-    """
     results = {}
     rows = driver.find_elements(By.CSS_SELECTOR, "tr")
 
     for row in rows:
-        tds = row.find_elements(By.TAG_NAME, "td")
-        if len(tds) >= 2:
-            # Clean label — strip (A), (B=...) annotations and extra whitespace
-            label = tds[0].text.strip()
-            label = re.sub(r'\s*\([^)]*\)', '', label).strip()
-            label = ' '.join(label.split())
+        try:
+            tds = row.find_elements(By.TAG_NAME, "td")
+            if len(tds) >= 2:
+                label = tds[0].text.strip()
+                label = re.sub(r'\s*\([^)]*\)', '', label).strip()
+                label = ' '.join(label.split())
+                # ✅ Normalize to Title Case so it matches build_row keys
+                label = label.title()
 
-            # Get value from button if present, else plain td text
-            try:
-                value = tds[1].find_element(By.TAG_NAME, "button").text.strip()
-            except:
-                value = tds[1].text.strip()
+                try:
+                    value = tds[1].find_element(By.TAG_NAME, "button").text.strip()
+                except:
+                    value = tds[1].text.strip()
 
-            if label and value:
-                results[label] = value
+                if label and value:
+                    results[label] = value
 
-    # Debug — print what was found
+        except StaleElementReferenceException:
+            continue  # ✅ Skip stale rows instead of crashing
+
     if results:
         print(f'    🔍 Fields found: {list(results.keys())}')
     else:
         print(f'    ⚠️  No fields found on page')
 
     return results
-
+    
 def build_row(base, fields):
-    """
-    Maps scraped dynamic fields into a standard row dict.
-    Uses .get() with 'N/A' fallback — no hardcoded XPaths.
-    Warns about any missing fields.
-    """
     row = {
         **base,
         'Taxable Sales':     fields.get('Taxable Sales',     'N/A'),
         'Non-Taxable Sales': fields.get('Non-Taxable Sales', 'N/A'),
         'Total Store Sales': fields.get('Total Store Sales', 'N/A'),
-        'Cash':              fields.get('CASH',              'N/A'),
-        'Credit Card':       fields.get('CREDIT CARD',       'N/A'),
+        'Cash':              fields.get('Cash',              'N/A'),
+        'Credit Card':       fields.get('Credit Card',       'N/A'),
         'Transaction Count': fields.get('Transaction Count', 'N/A'),
         'Total Paidout':     fields.get('Total Paidout',     'N/A'),
     }
 
-    # Warn about any N/A fields
     bad = [k for k, v in row.items() if v == 'N/A' and k not in base]
     if bad:
         print(f'    ⚠️  Missing fields: {bad}')
 
     return row
-
 # ══════════════════════════════════════════════════════
 # SCRAPE EOY — current year only
 # ══════════════════════════════════════════════════════
