@@ -139,79 +139,92 @@ def build_row(base, fields):
 # ══════════════════════════════════════════════════════
 # SCRAPE EOY — current year only
 # ══════════════════════════════════════════════════════
-def scrape_eoy(driver, store_name):
-    if not store_name or not store_name.strip():
-        print('    ⚠️  Skipping EOY — empty store name')
-        return None
-
-    wait = WebDriverWait(driver, 15)
-    driver.get('https://customer.albertapayments.com/eoyreport')
-
-    try:
-        year_select = wait.until(EC.presence_of_element_located((By.ID, 'selectYear')))
-        Select(year_select).select_by_value(CURRENT_YEAR)
-
-        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
-        submit.click()
-
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
-
-        fields = scrape_fields(driver)
-        row = build_row({'Year': CURRENT_YEAR, 'Store Name': store_name}, fields)
-
-        print(f"    ✅ EOY {CURRENT_YEAR} → Sales={row['Total Store Sales']}")
-        return row
-
-    except TimeoutException:
-        print(f'    ❌ EOY timed out for {store_name}')
-        return None
-    except Exception as e:
-        print(f'    ❌ EOY failed: {e}')
-        return None
-
-# ══════════════════════════════════════════════════════
-# SCRAPE EOM — current month only
-# ══════════════════════════════════════════════════════
 def scrape_eom(driver, store_name):
     if not store_name or not store_name.strip():
         print('    ⚠️  Skipping EOM — empty store name')
         return []
 
     wait = WebDriverWait(driver, 15)
-    driver.get('https://customer.albertapayments.com/eomreport')
-
     month_name = MONTH_NAMES[CURRENT_MONTH]
     month_val  = f'{CURRENT_MONTH:02d}'
     print(f'    📅 {month_name} {CURRENT_YEAR}', end=' ... ')
 
-    try:
-        year_select = wait.until(EC.presence_of_element_located((By.ID, 'year')))
-        Select(year_select).select_by_value(CURRENT_YEAR)
+    for attempt in range(1, 4):  # retry up to 3 times
+        try:
+            driver.get('https://customer.albertapayments.com/eomreport')
 
-        month_select = wait.until(EC.element_to_be_clickable((By.ID, 'month')))
-        Select(month_select).select_by_value(month_val)
+            year_select = wait.until(EC.presence_of_element_located((By.ID, 'year')))
+            Select(year_select).select_by_value(CURRENT_YEAR)
 
-        submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
-        submit.click()
+            month_select = wait.until(EC.element_to_be_clickable((By.ID, 'month')))
+            Select(month_select).select_by_value(month_val)
 
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
+            submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
+            submit.click()
 
-        fields = scrape_fields(driver)
-        row = build_row(
-            {'Store Name': store_name, 'Year': CURRENT_YEAR, 'Month': month_name},
-            fields
-        )
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
 
-        print(f"✅ Sales={row['Total Store Sales']}")
-        return [row]
+            fields = scrape_fields(driver)
 
-    except TimeoutException:
-        print(f'❌ Timed out waiting for results')
-        return []
-    except Exception as e:
-        print(f'❌ {e}')
-        return []
+            if not fields:
+                print(f'\n    ⚠️  Attempt {attempt} — no fields found, retrying...')
+                continue  # retry
 
+            row = build_row(
+                {'Store Name': store_name, 'Year': CURRENT_YEAR, 'Month': month_name},
+                fields
+            )
+            print(f"✅ Sales={row['Total Store Sales']}")
+            return [row]
+
+        except TimeoutException:
+            print(f'\n    ⚠️  Attempt {attempt} timed out, retrying...')
+        except Exception as e:
+            print(f'\n    ❌ Attempt {attempt} failed: {e}')
+            break
+
+    print(f'\n    ❌ EOM failed after 3 attempts for {store_name}')
+    return []
+# ══════════════════════════════════════════════════════
+# SCRAPE EOM — current month only
+# ══════════════════════════════════════════════════════
+def scrape_eoy(driver, store_name):
+    if not store_name or not store_name.strip():
+        print('    ⚠️  Skipping EOY — empty store name')
+        return None
+
+    wait = WebDriverWait(driver, 15)
+
+    for attempt in range(1, 4):  # retry up to 3 times
+        try:
+            driver.get('https://customer.albertapayments.com/eoyreport')
+
+            year_select = wait.until(EC.presence_of_element_located((By.ID, 'selectYear')))
+            Select(year_select).select_by_value(CURRENT_YEAR)
+
+            submit = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']")))
+            submit.click()
+
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "tr td button")))
+
+            fields = scrape_fields(driver)
+
+            if not fields:
+                print(f'    ⚠️  Attempt {attempt} — no fields found, retrying...')
+                continue
+
+            row = build_row({'Year': CURRENT_YEAR, 'Store Name': store_name}, fields)
+            print(f"    ✅ EOY {CURRENT_YEAR} → Sales={row['Total Store Sales']}")
+            return row
+
+        except TimeoutException:
+            print(f'    ⚠️  Attempt {attempt} timed out, retrying...')
+        except Exception as e:
+            print(f'    ❌ Attempt {attempt} failed: {e}')
+            break
+
+    print(f'    ❌ EOY failed after 3 attempts for {store_name}')
+    return None
 # ══════════════════════════════════════════════════════
 # MAIN RUN
 # ══════════════════════════════════════════════════════
